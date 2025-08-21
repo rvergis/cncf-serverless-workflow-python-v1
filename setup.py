@@ -10,7 +10,6 @@ setup(
         "": ["cncf-workflow-schema.yaml", "cncf-workflow-example.yaml"]
     },
     author="Ron Vergis",
-    author_email="ron.vergis@example.com",
     description="CNCF Serverless Workflow v1.0 validator and executor",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

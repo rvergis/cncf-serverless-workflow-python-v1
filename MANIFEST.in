@@ -1,0 +1,4 @@
+include cncf-workflow-schema.yaml
+include cncf-workflow-example.yaml
+include README.md
+include LICENSE
