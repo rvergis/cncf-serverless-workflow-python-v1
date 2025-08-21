@@ -1,0 +1,226 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://serverlessworkflow.io/schemas/1.0.0/workflow.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique workflow identifier
+  specVersion:
+    type: string
+    enum: ["1.0"]
+    description: Serverless Workflow specification version
+  version:
+    type: string
+    description: Workflow version
+  name:
+    type: string
+    description: Workflow name
+  description:
+    type: string
+    description: Workflow description
+  start:
+    type: [string, object]
+    description: Starting state name or definition
+    oneOf:
+      - type: string
+      - $ref: "#/$defs/StartDefinition"
+  functions:
+    type: array
+    items:
+      $ref: "#/$defs/Function"
+    description: List of function definitions
+  states:
+    type: array
+    items:
+      $ref: "#/$defs/State"
+    description: List of workflow states
+  subWorkflows:
+    type: array
+    items:
+      $ref: "#"
+    description: List of embedded sub-workflows
+required: [id, specVersion, states]
+$defs:
+  Function:
+    type: object
+    properties:
+      name:
+        type: string
+        pattern: "^[^.]+$"
+        description: Unique function name, no dots allowed
+      type:
+        type: string
+        enum: [custom, expression]
+      operation:
+        type: string
+        description: Operation identifier, may include dots (e.g., AGENT1.method1)
+      comment:
+        type: string
+        description: Comment explaining the shape of the returned data by the function, e.g., int, string, list, object
+    required: [name, type, operation, comment]
+  State:
+    type: object
+    oneOf:
+      - $ref: "#/$defs/OperationState"
+      - $ref: "#/$defs/ForEachState"
+      - $ref: "#/$defs/SwitchState"
+      - $ref: "#/$defs/SubflowState"
+      - $ref: "#/$defs/ParallelState"
+      - $ref: "#/$defs/EndState"
+  OperationState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: operation
+      actions:
+        type: array
+        items:
+          $ref: "#/$defs/Action"
+      actionMode:
+        type: string
+        enum: [sequential, parallel]
+      stateDataFilter:
+        $ref: "#/$defs/StateDataFilter"
+      transition:
+        type: string
+      end:
+        type: [boolean, object]
+    required: [name, type, actions]
+  ForEachState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: foreach
+      inputCollection:
+        type: string
+      iterationParam:
+        type: string
+      iterator:
+        type: array
+        items:
+          $ref: "#/$defs/State"
+      stateDataFilter:
+        $ref: "#/$defs/StateDataFilter"
+      transition:
+        type: string
+      end:
+        type: [boolean, object]
+    required: [name, type, inputCollection]
+  SwitchState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: switch
+      dataConditions:
+        type: array
+        items:
+          type: object
+          properties:
+            condition:
+              type: string
+            transition:
+              type: string
+          required: [condition, transition]
+      defaultCondition:
+        type: object
+        properties:
+          transition:
+            type: string
+      stateDataFilter:
+        $ref: "#/$defs/StateDataFilter"
+      transition:
+        type: string
+      end:
+        type: [boolean, object]
+    required: [name, type]
+  SubflowState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: subflow
+      workflowId:
+        type: string
+      stateDataFilter:
+        $ref: "#/$defs/StateDataFilter"
+      transition:
+        type: string
+      end:
+        type: [boolean, object]
+    required: [name, type, workflowId]
+  ParallelState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: parallel
+      branches:
+        type: array
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            states:
+              type: array
+              items:
+                $ref: "#/$defs/State"
+          required: [name, states]
+      completionType:
+        type: string
+        enum: [allOf, atLeast]
+      stateDataFilter:
+        $ref: "#/$defs/StateDataFilter"
+      transition:
+        type: string
+      end:
+        type: [boolean, object]
+    required: [name, type, branches]
+  EndState:
+    type: object
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: end
+    required: [name, type]
+  Action:
+    type: object
+    properties:
+      name:
+        type: string
+      functionRef:
+        type: [string, object]
+        properties:
+          refName:
+            type: string
+          arguments:
+            type: object
+        required: [refName]
+      subflowRef:
+        type: string
+      dataOutput:
+        type: string
+        description: JSONPath to merge action output, e.g., .context.stateOutput.<functionName> or .context.stateOutput.branchOutput for branches
+  StateDataFilter:
+    type: object
+    properties:
+      input:
+        type: string
+      output:
+        type: string
+        description: JSONPath to merge state output, e.g., .context.stateOutput
