@@ -1,6 +1,6 @@
 import pytest
 import yaml
-from validate_workflow import load_yaml, validate_workflow
+from workflow_validator import load_yaml, validate_workflow
 
 @pytest.fixture
 def schema():
@@ -10,7 +10,7 @@ def schema():
 @pytest.fixture
 def valid_workflow():
     """Load the valid workflow."""
-    return load_yaml("simplified-agentic-workflow.yaml")
+    return load_yaml("cncf-workflow-example.yaml")
 
 def test_valid_workflow(schema, valid_workflow):
     """Test valid workflow passes validation."""

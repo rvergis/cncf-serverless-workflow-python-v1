@@ -3,7 +3,7 @@
 Provides validation and execution for CNCF Serverless Workflow v1.0 specifications.
 """
 
-from .workflow-validator import load_yaml, validate_workflow
-from .workflow-engine import execute_workflow
+from .workflow_validator import load_yaml, validate_workflow
+from .workflow_engine import execute_workflow
 
 __version__ = "0.1.0"

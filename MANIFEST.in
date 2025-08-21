@@ -1,4 +1,5 @@
-include cncf-workflow-schema.yaml
-include cncf-workflow-example.yaml
+include test_workflow_validator.py
+include workflow_schema.yaml
+include workflow_example.yaml
 include README.md
 include LICENSE
