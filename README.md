@@ -3,11 +3,11 @@
 A Python 3 library for parsing, validating, and executing workflows defined in the [CNCF Serverless Workflow v1.0 specification](https://serverlessworkflow.io/). Supports all state types (`OperationState`, `ForEachState`, `SwitchState`, `SubflowState`, `ParallelState`, `EndState`, `EventState`, `DelayState`, `InjectState`), JQ-based data filtering, events, retries, and authentication. Optimized for agentic workflows with LLM-friendly design.
 
 ## Features
-- **Parse and Validate**: Validates YAML/JSON workflows against the v1.0 schema, enforcing mandatory `transition` or `end: true` for non-`EndState` types.
+- **Parse and Validate**: Validates YAML/JSON workflows against the v1.0 schema, enforcing `transition` or `end: true` for non-`EndState` types, collecting all errors.
 - **Execute Workflows**: Handles all state types, including event-driven, delay, and data injection.
 - **JQ Integration**: Supports JQ for `stateDataFilter`, `arguments`, and `inputCollection`.
-- **LLM-Friendly**: Structured comments (e.g., `# MANDATORY Transition`) and validation feedback for LLM generation.
-- **Testing**: Pytest suite for validation checks.
+- **LLM-Friendly**: Structured comments (e.g., `# MANDATORY Transition`) and comprehensive error reporting for LLM generation.
+- **Testing**: Pytest suite for validation of multiple error cases.
 
 ## Installation
 1. Clone the repository:
@@ -39,7 +39,7 @@ A Python 3 library for parsing, validating, and executing workflows defined in t
        final_state = execute_workflow(workflow)
        print(json.dumps(final_state, indent=2))
    else:
-       print(result["message"])
+       print(json.dumps(result["message"], indent=2))
    ```
 3. Example output for `simplified-agentic-workflow.yaml`:
    ```json
@@ -73,8 +73,9 @@ A Python 3 library for parsing, validating, and executing workflows defined in t
 ## LLM Integration
 To generate valid workflows:
 1. Provide `simplified-agentic-workflow.yaml` as a one-shot example.
-2. Use prompt: “Generate a state with `transition` (to ParallelStart, ForEachState, etc.) or `end: true` after `type`, `stateDataFilter`, and `dataOutput`.”
-3. Validate with `validate_workflow.py`, retrying with error message (e.g., “State ‘GetAllObjectIds’ missing mandatory transition”) up to 3 times.
+2. Use prompt: “Generate a state with `transition` (to ParallelStart, ForEachState, etc.) or `end: true` after `type`, optional `stateDataFilter`, and `dataOutput`.”
+3. Validate with `validate_workflow.py`, retrying up to 3 times with errors: “Regenerate fixing: {errors}.”
+4. Example error: `["State 'GetAllObjectIds' missing mandatory transition or end: true"]`.
 
 ## Testing
 Run tests to validate workflows:
@@ -84,8 +85,8 @@ pytest test_validate_workflow.py
 
 ## Project Structure
 - `workflow_engine_v1.py`: Executes workflows.
-- `validate_workflow.py`: Validates workflows against schema.
-- `test_validate_workflow.py`: Pytest suite for validation.
+- `validate_workflow.py`: Validates workflows, collecting all errors.
+- `test_validate_workflow.py`: Pytest suite for multiple error cases.
 - `workflow-schema.yaml`: Full CNCF v1.0 schema.
 - `simplified-agentic-workflow.yaml`: Example workflow with LLM-friendly comments.
 
