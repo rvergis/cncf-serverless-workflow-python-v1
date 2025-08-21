@@ -1,7 +1,8 @@
 import yaml
 import jsonschema
+from jsonschema import Draft7Validator
 import json
-from typing import Dict
+from typing import Dict, List
 
 def load_yaml(file_path: str) -> Dict:
     """Load YAML file into a dictionary."""
@@ -9,57 +10,56 @@ def load_yaml(file_path: str) -> Dict:
         return yaml.safe_load(f)
 
 def validate_workflow(workflow: Dict, schema: Dict) -> Dict:
-    """Validate workflow against schema, checking mandatory fields."""
-    try:
-        # Validate against JSON schema
-        jsonschema.validate(workflow, schema)
-        
-        # Additional checks for mandatory transition/end and iterator states
-        for state in workflow.get("states", []):
-            state_name = state["name"]
-            state_type = state["type"]
-            
-            # Check for mandatory transition or end (except EndState and SwitchState)
-            if state_type != "end" and not (state.get("transition") or state.get("end")):
-                if state_type != "switch" or not (state.get("dataConditions") or state.get("defaultCondition")):
-                    raise ValueError(f"State '{state_name}' missing mandatory transition or end: true")
-            
-            # Check for mandatory stateDataFilter (except EndState)
-            if state_type != "end" and not state.get("stateDataFilter"):
-                raise ValueError(f"State '{state_name}' missing mandatory stateDataFilter with input and output")
-            
-            # Check for mandatory dataOutput in actions
-            for action in state.get("actions", []):
-                if not action.get("dataOutput"):
-                    raise ValueError(f"Action in state '{state_name}' missing mandatory dataOutput")
-            
-            # Check iterator states in ForEachState
-            if state_type == "foreach":
-                for iterator_state in state.get("iterator", []):
-                    if iterator_state["type"] == "end":
-                        raise ValueError(f"Iterator state '{iterator_state['name']}' cannot be type: end; use OperationState or SubflowState with end: true")
-                    if not (iterator_state.get("transition") or iterator_state.get("end") or iterator_state.get("dataConditions")):
-                        raise ValueError(f"Iterator state '{iterator_state['name']}' missing mandatory transition or end: true")
-                    if not iterator_state.get("stateDataFilter"):
-                        raise ValueError(f"Iterator state '{iterator_state['name']}' missing mandatory stateDataFilter")
-        
-        # Validate sub-workflows
-        for sub_workflow in workflow.get("subWorkflows", []):
-            validate_workflow(sub_workflow, schema)
-        
-        return {"status": "valid", "message": "Workflow is valid"}
-    
-    except jsonschema.exceptions.ValidationError as e:
-        return {"status": "invalid", "message": f"Schema validation failed: {str(e)}"}
-    except ValueError as e:
-        return {"status": "invalid", "message": str(e)}
+    """Validate workflow against schema, collecting all errors."""
+    errors: List[str] = []
+
+    # Collect JSON schema validation errors
+    validator = Draft7Validator(schema)
+    for error in validator.iter_errors(workflow):
+        errors.append(f"Schema validation failed: {error.message} at {'.'.join(str(p) for p in error.path)}")
+
+    # Custom checks for mandatory fields
+    for state in workflow.get("states", []):
+        state_name = state["name"]
+        state_type = state["type"]
+
+        # Check transition or end (except EndState and SwitchState)
+        if state_type != "end" and not (state.get("transition") or state.get("end")):
+            if state_type != "switch" or not (state.get("dataConditions") or state.get("defaultCondition")):
+                errors.append(f"State '{state_name}' missing mandatory transition or end: true")
+
+        # Check stateDataFilter (except EndState)
+        if state_type != "end" and not state.get("stateDataFilter"):
+            errors.append(f"State '{state_name}' missing mandatory stateDataFilter with input and output")
+
+        # Check dataOutput in actions
+        for action in state.get("actions", []):
+            if not action.get("dataOutput"):
+                errors.append(f"Action in state '{state_name}' missing mandatory dataOutput")
+
+        # Check iterator states in ForEachState
+        if state_type == "foreach":
+            for iterator_state in state.get("iterator", []):
+                iter_name = iterator_state["name"]
+                if iterator_state["type"] == "end":
+                    errors.append(f"Iterator state '{iter_name}' cannot be type: end; use end: true")
+                if not (iterator_state.get("transition") or iterator_state.get("end") or iterator_state.get("dataConditions")):
+                    errors.append(f"Iterator state '{iter_name}' missing mandatory transition or end: true")
+                if not iterator_state.get("stateDataFilter"):
+                    errors.append(f"Iterator state '{iter_name}' missing mandatory stateDataFilter")
+
+    # Validate sub-workflows
+    for sub_workflow in workflow.get("subWorkflows", []):
+        sub_errors = validate_workflow(sub_workflow, schema).get("message", [])
+        errors.extend([f"Sub-workflow '{sub_workflow['id']}': {msg}" for msg in sub_errors if msg])
+
+    if errors:
+        return {"status": "invalid", "message": errors}
+    return {"status": "valid", "message": ["Workflow is valid"]}
 
 def main():
-    # Load schema and workflow
     schema = load_yaml("workflow-schema.yaml")
     workflow = load_yaml("simplified-agentic-workflow.yaml")
-    
-    # Validate
     result = validate_workflow(workflow, schema)
     print(json.dumps(result, indent=2))
 

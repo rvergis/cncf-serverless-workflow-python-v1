@@ -16,10 +16,10 @@ def test_valid_workflow(schema, valid_workflow):
     """Test valid workflow passes validation."""
     result = validate_workflow(valid_workflow, schema)
     assert result["status"] == "valid"
-    assert result["message"] == "Workflow is valid"
+    assert result["message"] == ["Workflow is valid"]
 
-def test_missing_transition(schema):
-    """Test workflow with missing transition fails."""
+def test_missing_transition_and_stateDataFilter(schema):
+    """Test workflow with missing transition and stateDataFilter returns all errors."""
     invalid_workflow = {
         "id": "test-workflow",
         "specVersion": "1.0",
@@ -29,7 +29,6 @@ def test_missing_transition(schema):
             {
                 "name": "GetAllObjectIds",
                 "type": "operation",
-                "stateDataFilter": {"input": "{}", "output": ".context"},
                 "actions": [
                     {
                         "functionRef": {"refName": "getObjectIds", "arguments": {"input": "{}"}},
@@ -41,35 +40,12 @@ def test_missing_transition(schema):
     }
     result = validate_workflow(invalid_workflow, schema)
     assert result["status"] == "invalid"
-    assert "missing mandatory transition or end: true" in result["message"]
-
-def test_missing_stateDataFilter(schema):
-    """Test workflow with missing stateDataFilter fails."""
-    invalid_workflow = {
-        "id": "test-workflow",
-        "specVersion": "1.0",
-        "version": "1.0.0",
-        "name": "Test Workflow",
-        "states": [
-            {
-                "name": "GetAllObjectIds",
-                "type": "operation",
-                "transition": "NextState",
-                "actions": [
-                    {
-                        "functionRef": {"refName": "getObjectIds", "arguments": {"input": "{}"}},
-                        "dataOutput": ".context.GetAllObjectIdsOutput.objectIds"
-                    }
-                ]
-            }
-        ]
-    }
-    result = validate_workflow(invalid_workflow, schema)
-    assert result["status"] == "invalid"
-    assert "missing mandatory stateDataFilter" in result["message"]
+    assert len(result["message"]) >= 2
+    assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
+    assert any("missing mandatory stateDataFilter" in msg for msg in result["message"])
 
 def test_missing_dataOutput(schema):
-    """Test workflow with missing dataOutput fails."""
+    """Test workflow with missing dataOutput returns error."""
     invalid_workflow = {
         "id": "test-workflow",
         "specVersion": "1.0",
@@ -91,10 +67,10 @@ def test_missing_dataOutput(schema):
     }
     result = validate_workflow(invalid_workflow, schema)
     assert result["status"] == "invalid"
-    assert "missing mandatory dataOutput" in result["message"]
+    assert any("missing mandatory dataOutput" in msg for msg in result["message"])
 
 def test_iterator_type_end(schema):
-    """Test workflow with type: end in iterator state fails."""
+    """Test workflow with type: end in iterator state returns error."""
     invalid_workflow = {
         "id": "test-workflow",
         "specVersion": "1.0",
@@ -123,11 +99,69 @@ def test_iterator_type_end(schema):
     }
     result = validate_workflow(invalid_workflow, schema)
     assert result["status"] == "invalid"
-    assert "cannot be type: end; use end: true" in result["message"]
+    assert any("cannot be type: end; use end: true" in msg for msg in result["message"])
 
 def test_subworkflow_validation(schema, valid_workflow):
-    """Test sub-workflow validation."""
-    sub_workflow = valid_workflow["subWorkflows"][0]
-    result = validate_workflow(sub_workflow, schema)
-    assert result["status"] == "valid"
-    assert result["message"] == "Workflow is valid"
+    """Test sub-workflow validation returns all errors."""
+    invalid_subworkflow = {
+        "id": "InvalidSubWorkflow",
+        "specVersion": "1.0",
+        "version": "1.0.0",
+        "name": "Invalid Sub Workflow",
+        "states": [
+            {
+                "name": "InvalidOperation",
+                "type": "operation",
+                "actions": [
+                    {
+                        "functionRef": {"refName": "subAgent", "arguments": {"input": "{}"}}
+                    }
+                ]
+            }
+        ]
+    }
+    result = validate_workflow(invalid_subworkflow, schema)
+    assert result["status"] == "invalid"
+    assert len(result["message"]) >= 2
+    assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
+    assert any("missing mandatory stateDataFilter" in msg for msg in result["message"])
+    assert any("missing mandatory dataOutput" in msg for msg in result["message"])
+
+def test_multiple_errors_combined(schema):
+    """Test workflow with multiple errors returns all at once."""
+    invalid_workflow = {
+        "id": "test-workflow",
+        "specVersion": "1.0",
+        "version": "1.0.0",
+        "name": "Test Workflow",
+        "states": [
+            {
+                "name": "GetAllObjectIds",
+                "type": "operation",
+                "actions": [
+                    {
+                        "functionRef": {"refName": "getObjectIds", "arguments": {"input": "{}"}}
+                    }
+                ]
+            },
+            {
+                "name": "ForEachTest",
+                "type": "foreach",
+                "inputCollection": ".items",
+                "iterationParam": "item",
+                "iterator": [
+                    {
+                        "name": "InvalidEnd",
+                        "type": "end"
+                    }
+                ]
+            }
+        ]
+    }
+    result = validate_workflow(invalid_workflow, schema)
+    assert result["status"] == "invalid"
+    assert len(result["message"]) >= 4
+    assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
+    assert any("missing mandatory stateDataFilter" in msg for msg in result["message"])
+    assert any("missing mandatory dataOutput" in msg for msg in result["message"])
+    assert any("cannot be type: end; use end: true" in msg for msg in result["message"])
