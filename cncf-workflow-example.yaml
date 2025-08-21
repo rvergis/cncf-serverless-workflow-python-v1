@@ -2,73 +2,73 @@ id: simplified-agentic-workflow
 specVersion: "1.0"
 version: "1.0.0"
 name: Simplified Agentic AI Workflow
-description: Simplified workflow with state-based naming, no dataInput, null checks, structured comments
+description: "Simplified workflow with state-based naming, no dataInput, null checks, quoted structured comments"
 start: ParallelStart
 functions:
   - name: initParallel
     type: expression
     operation: "{items: [{value: 60}, {value: 30}, {value: 45}], value: 60}"
-    comment: Returns object (e.g., {items: list, value: int})
+    comment: "Returns object (e.g., {\"items\": [{\"value\": number}], \"value\": number})"
   - name: initForEach
     type: expression
     operation: "{items: [{value: 60}, {value: 30}, {value: 45}]}"
-    comment: Returns object (e.g., {items: list})
+    comment: "Returns object (e.g., {\"items\": [{\"value\": number}]})"
   - name: initSwitch
     type: expression
     operation: "{value: 60}"
-    comment: Returns object (e.g., {value: int})
+    comment: "Returns object (e.g., {\"value\": number})"
   - name: initOperation
     type: expression
     operation: "{value: 70}"
-    comment: Returns object (e.g., {value: int})
+    comment: "Returns object (e.g., {\"value\": number})"
   - name: method1
     type: custom
     operation: AGENT1.method1
-    comment: Returns int (e.g., incremented value)
+    comment: "Returns int (e.g., incremented value)"
   - name: method2
     type: custom
     operation: AGENT2.method2
-    comment: Returns string (e.g., formatted message)
+    comment: "Returns string (e.g., formatted message)"
   - name: method3
     type: expression
     operation: "[.input.value, .input.value + 1]"
-    comment: Returns list (e.g., [value, value + 1])
+    comment: "Returns list (e.g., [value, value + 1])"
   - name: method4
     type: custom
     operation: AGENT4.method4
-    comment: Returns object (e.g., {key: processed})
+    comment: "Returns object (e.g., {\"key\": processed})"
   - name: subAgent
     type: custom
     operation: sub_agent_operation
-    comment: Returns object (e.g., {subResult: processed})
+    comment: "Returns object (e.g., {\"subResult\": processed})"
 states:
   # State: ParallelStart
-  # Input: {}
-  # Output: {"context": {"ParallelStartOutput": {"items": [{"value": 60}, {"value": 30}, {"value": 45}], "value": 60, "Branch1Output": 62, "Branch2Output": "Processed: 2"}}}
+  # Input: "{}"
+  # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   - name: ParallelStart
     type: parallel
     branches:
       # Branch: Branch1
-      # Input: {}
-      # Output: {"context": {"ParallelStartOutput": {"items": [{"value": 60}, {"value": 30}, {"value": 45}], "value": 60, "Branch1Output": 62}}}
+      # Input: "{}"
+      # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62}}}"
       - name: Branch1
         states:
           - name: Branch1Operation
             type: operation
             actions:
               # Action: initParallel
-              # Input: {}
-              # Output: {"items": [{"value": 60}, {"value": 30}, {"value": 45}], "value": 60}
-              # Merged to: .context.ParallelStartOutput
+              # Input: "{}"
+              # Output: "{\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60}"
+              # Merged to: ".context.ParallelStartOutput"
               - functionRef:
                   refName: initParallel
                   arguments:
                     input: "{}"
                   dataOutput: ".context.ParallelStartOutput"
               # Action: method1
-              # Input: {"input": 61}
-              # Output: 62
-              # Merged to: .context.ParallelStartOutput.Branch1Output
+              # Input: "{\"input\": 61}"
+              # Output: "62"
+              # Merged to: ".context.ParallelStartOutput.Branch1Output"
               - functionRef:
                   refName: method1
                   arguments:
@@ -76,17 +76,17 @@ states:
                   dataOutput: ".context.ParallelStartOutput.Branch1Output"
             end: true
       # Branch: Branch2
-      # Input: {}
-      # Output: {"context": {"ParallelStartOutput": {"Branch2Output": "Processed: 2"}}}
+      # Input: "{}"
+      # Output: "{\"context\": {\"ParallelStartOutput\": {\"Branch2Output\": \"Processed: 2\"}}}"
       - name: Branch2
         states:
           - name: Branch2Operation
             type: operation
             actions:
               # Action: method2
-              # Input: {"input": 2}
-              # Output: "Processed: 2"
-              # Merged to: .context.ParallelStartOutput.Branch2Output
+              # Input: "{\"input\": 2}"
+              # Output: "\"Processed: 2\""
+              # Merged to: ".context.ParallelStartOutput.Branch2Output"
               - functionRef:
                   refName: method2
                   arguments:
@@ -99,16 +99,16 @@ states:
       output: ".context"
     transition: ForEachState
   # State: ForEachState
-  # Input: {"context": {"ParallelStartOutput": {"items": [{"value": 60}, {"value": 30}, {"value": 45}], "value": 60, "Branch1Output": 62, "Branch2Output": "Processed: 2"}}}
-  # Output: {"context": {"ParallelStartOutput": {...}, "ForEachStateOutput": {"results": [{"method2": "Processed: 10"}, {"method3": [31, 32]}, {"method3": [46, 47]}]}}}
+  # Input: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
+  # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {\"results\": [{\"method2\": \"Processed: 10\"}, {\"method3\": [31, 32]}, {\"method3\": [46, 47]}]}}}"
   - name: ForEachState
     type: foreach
     inputCollection: ".context.ParallelStartOutput.items // []"
     iterationParam: "item"
     iterator:
       # Iterator State: ForEachSwitch
-      # Input: {"item": {"value": <number>}, "context": {...}}
-      # Output: Routes to HighAction, LowAction, or SubflowAction
+      # Input: "{\"item\": {\"value\": <number>}, \"context\": {...}}"
+      # Output: "\"Routes to HighAction, LowAction, or SubflowAction\""
       - name: ForEachSwitch
         type: switch
         dataConditions:
@@ -119,15 +119,15 @@ states:
         defaultCondition:
           transition: SubflowAction
       # Iterator State: HighAction
-      # Input: {"item": {"value": 60}, "context": {...}}
-      # Output: {"context": {"ForEachStateOutput": {"method2": "Processed: 10"}}}
+      # Input: "{\"item\": {\"value\": 60}, \"context\": {...}}"
+      # Output: "{\"context\": {\"ForEachStateOutput\": {\"method2\": \"Processed: 10\"}}}"
       - name: HighAction
         type: operation
         actions:
           # Action: method2
-          # Input: {"input": 10}
-          # Output: "Processed: 10"
-          # Merged to: .context.ForEachStateOutput.method2
+          # Input: "{\"input\": 10}"
+          # Output: "\"Processed: 10\""
+          # Merged to: ".context.ForEachStateOutput.method2"
           - functionRef:
               refName: method2
               arguments:
@@ -135,15 +135,15 @@ states:
               dataOutput: ".context.ForEachStateOutput.method2"
         end: true
       # Iterator State: LowAction
-      # Input: {"item": {"value": 30 | 45}, "context": {...}}
-      # Output: {"context": {"ForEachStateOutput": {"method3": [31, 32] | [46, 47]}}}
+      # Input: "{\"item\": {\"value\": 30 | 45}, \"context\": {...}}"
+      # Output: "{\"context\": {\"ForEachStateOutput\": {\"method3\": [31, 32] | [46, 47]}}}"
       - name: LowAction
         type: operation
         actions:
           # Action: method3
-          # Input: {"input": {"value": 31}} or {"input": {"value": 46}}
-          # Output: [31, 32] or [46, 47]
-          # Merged to: .context.ForEachStateOutput.method3
+          # Input: "{\"input\": {\"value\": 31}} or {\"input\": {\"value\": 46}}"
+          # Output: "[31, 32] or [46, 47]"
+          # Merged to: ".context.ForEachStateOutput.method3"
           - functionRef:
               refName: method3
               arguments:
@@ -151,8 +151,8 @@ states:
               dataOutput: ".context.ForEachStateOutput.method3"
         end: true
       # Iterator State: SubflowAction
-      # Input: {"item": {"value": null}, "context": {...}} (hypothetical, not triggered)
-      # Output: {"context": {"ForEachStateOutput": {"SubWorkflowOutput": {"subResult": 0}}}}
+      # Input: "{\"item\": {\"value\": null}, \"context\": {...}} (hypothetical, not triggered)"
+      # Output: "{\"context\": {\"ForEachStateOutput\": {\"SubWorkflowOutput\": {\"subResult\": 0}}}}"
       - name: SubflowAction
         type: subflow
         workflowId: SubWorkflow
@@ -164,6 +164,9 @@ states:
       input: ".context.ParallelStartOutput // {}"
       output: ".context"
     transition: SwitchState
+  # State: SwitchState
+  # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}}}"
+  # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {\"value\": 60}}}"
   - name: SwitchState
     type: switch
     dataConditions:
@@ -176,41 +179,70 @@ states:
     stateDataFilter:
       input: ".context.ForEachStateOutput // {}"
       output: ".context"
+  # State: OperationState
+  # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}}}"
+  # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {\"initOperation\": {\"value\": 70}, \"method1\": 72, \"method2\": \"Processed: Seq2: 72\", \"method3\": [\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"], \"method4\": {\"key\": \"Processed: Seq2: 72\"}}}}"
   - name: OperationState
     type: operation
     actionMode: sequential
     stateDataFilter:
       output: ".context"
     actions:
+      # Action: initOperation
+      # Input: "{}"
+      # Output: "{\"value\": 70}"
+      # Merged to: ".context.OperationStateOutput.initOperation"
       - functionRef:
           refName: initOperation
           arguments:
             input: "{}"
           dataOutput: ".context.OperationStateOutput.initOperation"
+      # Action: method1
+      # Input: "{\"input\": 71}"
+      # Output: "72"
+      # Merged to: ".context.OperationStateOutput.method1"
       - functionRef:
           refName: method1
           arguments:
             input: "{input: (.context.OperationStateOutput.initOperation.value // 0) + 1}"
           dataOutput: ".context.OperationStateOutput.method1"
+      # Action: method2
+      # Input: "{\"input\": \"Seq2: 72\"}"
+      # Output: "\"Processed: Seq2: 72\""
+      # Merged to: ".context.OperationStateOutput.method2"
       - functionRef:
           refName: method2
           arguments:
             input: "{input: \"Seq2: \" + ((.context.OperationStateOutput.method1 // 0) | tostring)}"
           dataOutput: ".context.OperationStateOutput.method2"
+      # Action: method3
+      # Input: "{\"input\": {\"value\": \"Processed: Seq2: 72\"}}"
+      # Output: "[\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"]"
+      # Merged to: ".context.OperationStateOutput.method3"
       - functionRef:
           refName: method3
           arguments:
             input: "{input: {value: (.context.OperationStateOutput.method2 // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method3"
+      # Action: method4
+      # Input: "{\"input\": {\"default\": \"Processed: Seq2: 72\"}}"
+      # Output: "{\"key\": \"Processed: Seq2: 72\"}"
+      # Merged to: ".context.OperationStateOutput.method4"
       - functionRef:
           refName: method4
           arguments:
             input: "{input: {default: (.context.OperationStateOutput.method3[0] // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method4"
     transition: End
+  # State: End
+  # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {...}}}"
+  # Output: "\"Same as input (terminates workflow)\""
   - name: End
     type: end
 subWorkflows:
+  # SubWorkflow: SubWorkflow
+  # Input: "{\"context\": {\"SubWorkflowOutput\": {\"value\": <number>}}}"
+  # Output: "{\"context\": {\"SubWorkflowOutput\": {\"subResult\": <number>}}}"
   - id: SubWorkflow
     specVersion: "1.0"
     version: "1.0.0"
@@ -219,11 +251,18 @@ subWorkflows:
       - name: subAgent
         type: custom
         operation: sub_agent_operation
-        comment: Returns object (e.g., {subResult: processed})
+        comment: "Returns object (e.g., {\"subResult\": processed})"
     states:
+      # State: SubOperation
+      # Input: "{\"context\": {\"SubWorkflowOutput\": {\"value\": <number>}}}"
+      # Output: "{\"context\": {\"SubWorkflowOutput\": {\"subResult\": <number>}}}"
       - name: SubOperation
         type: operation
         actions:
+          # Action: subAgent
+          # Input: "{\"input\": 0}"
+          # Output: "{\"subResult\": 0}"
+          # Merged to: ".context.SubWorkflowOutput"
           - functionRef:
               refName: subAgent
               arguments:
