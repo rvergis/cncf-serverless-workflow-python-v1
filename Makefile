@@ -1,4 +1,4 @@
-.PHONY: install test build patch publish clean
+.PHONY: install test build patch publish force-publish clean
 
 install:
 	pip install --upgrade pip
@@ -28,6 +28,13 @@ publish:
 	$(eval VERSION := $(shell grep "__version__" __init__.py | cut -d'"' -f2))
 	@git tag v$(VERSION)
 	@git push origin v$(VERSION)
+	@echo "Triggered GitHub Actions workflow for publishing $(VERSION)"
+
+force-publish:
+	@echo "Force-publishing version..."
+	$(eval VERSION := $(shell grep "__version__" __init__.py | cut -d'"' -f2))
+	@git tag -f v$(VERSION)  # Force overwrite existing tag
+	@git push origin v$(VERSION) --force  # Force push tag
 	@echo "Triggered GitHub Actions workflow for publishing $(VERSION)"
 
 clean:
