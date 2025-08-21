@@ -3,8 +3,8 @@ specVersion: "1.0"
 version: "1.0.0"
 name: Simplified Agentic AI Workflow
 description: "Simplified workflow with state-based naming, no dataInput, null checks, quoted structured comments"
-start: ParallelStart
 
+start: ParallelStart
 functions:
   - name: initParallel
     type: expression
@@ -50,9 +50,8 @@ states:
   # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   - name: ParallelStart
     type: parallel
-    transition: ForEachState
     branches:
-
+      
       # Branch: Branch1
       # Input: "{}"
       # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62}}}"
@@ -61,6 +60,7 @@ states:
           - name: Branch1Operation
             type: operation
             actions:
+              
               # Action: initParallel
               # Input: "{}"
               # Output: "{\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60}"
@@ -70,6 +70,7 @@ states:
                   arguments:
                     input: "{}"
                   dataOutput: ".context.ParallelStartOutput"
+              
               # Action: method1
               # Input: "{\"input\": 61}"
               # Output: "62"
@@ -89,6 +90,7 @@ states:
           - name: Branch2Operation
             type: operation
             actions:
+              
               # Action: method2
               # Input: "{\"input\": 2}"
               # Output: "\"Processed: 2\""
@@ -103,13 +105,13 @@ states:
     stateDataFilter:
       input: "{}"
       output: ".context"
+    transition: ForEachState
   
   # State: ForEachState
   # Input: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {\"results\": [{\"method2\": \"Processed: 10\"}, {\"method3\": [31, 32]}, {\"method3\": [46, 47]}]}}}"
   - name: ForEachState
     type: foreach
-    transition: SwitchState
     inputCollection: ".context.ParallelStartOutput.items // []"
     iterationParam: "item"
     iterator:
@@ -133,6 +135,7 @@ states:
       - name: HighAction
         type: operation
         actions:
+          
           # Action: method2
           # Input: "{\"input\": 10}"
           # Output: "\"Processed: 10\""
@@ -150,6 +153,7 @@ states:
       - name: LowAction
         type: operation
         actions:
+          
           # Action: method3
           # Input: "{\"input\": {\"value\": 31}} or {\"input\": {\"value\": 46}}"
           # Output: "[31, 32] or [46, 47]"
@@ -174,15 +178,24 @@ states:
     stateDataFilter:
       input: ".context.ParallelStartOutput // {}"
       output: ".context"
-
+    transition: SwitchState
+  
   # State: SwitchState
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {\"value\": 60}}}"
   - name: SwitchState
     type: switch
     dataConditions:
+      
+      # Condition: Check if results exist and method2 output is present
+      # Input: "{\"context\": {\"ForEachStateOutput\": {\"results\": [...]}}}"
+      # Output: "\"Transitions to OperationState if condition met, else End\""
       - condition: ".context.ForEachStateOutput.results != null and .context.ForEachStateOutput.results[0].method2 != null"
         transition: OperationState
+      
+      # Condition: Fallback if results are null or method2 missing
+      # Input: "{\"context\": {\"ForEachStateOutput\": {...}}}"
+      # Output: "\"Transitions to End\""
       - condition: ".context.ForEachStateOutput.results == null or .context.ForEachStateOutput.results[0].method2 == null"
         transition: End
     defaultCondition:
@@ -196,7 +209,6 @@ states:
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {\"initOperation\": {\"value\": 70}, \"method1\": 72, \"method2\": \"Processed: Seq2: 72\", \"method3\": [\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"], \"method4\": {\"key\": \"Processed: Seq2: 72\"}}}}"
   - name: OperationState
     type: operation
-    transition: End
     actionMode: sequential
     stateDataFilter:
       output: ".context"
@@ -230,7 +242,7 @@ states:
           refName: method2
           arguments:
             input: "{input: \"Seq2: \" + ((.context.OperationStateOutput.method1 // 0) | tostring)}"
-          dataOutput: ".context.OperationStateOutput.method2"
+          dataOutput: ".context.OperationStateOutput.method3"
       
       # Action: method3
       # Input: "{\"input\": {\"value\": \"Processed: Seq2: 72\"}}"
@@ -251,6 +263,7 @@ states:
           arguments:
             input: "{input: {default: (.context.OperationStateOutput.method3[0] // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method4"
+    transition: End
   
   # State: End
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {...}}}"
@@ -258,8 +271,8 @@ states:
   - name: End
     type: end
 
-
 subWorkflows:
+  
   # SubWorkflow: SubWorkflow
   # Input: "{\"context\": {\"SubWorkflowOutput\": {\"value\": <number>}}}"
   # Output: "{\"context\": {\"SubWorkflowOutput\": {\"subResult\": <number>}}}"
@@ -273,12 +286,14 @@ subWorkflows:
         operation: sub_agent_operation
         comment: "Returns object (e.g., {\"subResult\": processed})"
     states:
+      
       # State: SubOperation
       # Input: "{\"context\": {\"SubWorkflowOutput\": {\"value\": <number>}}}"
       # Output: "{\"context\": {\"SubWorkflowOutput\": {\"subResult\": <number>}}}"
       - name: SubOperation
         type: operation
         actions:
+          
           # Action: subAgent
           # Input: "{\"input\": 0}"
           # Output: "{\"subResult\": 0}"

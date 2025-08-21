@@ -54,7 +54,7 @@ $defs:
         description: "Type of function (custom or expression)"
       operation:
         type: string
-        description: "Operation identifier, may include dots (e.g., AGENT1.method1)"
+        description: "Operation identifier, may include dots (e.g., 'AGENT1.method1')"
       comment:
         type: string
         description: "Quoted string explaining the shape of the returned data, e.g., 'Returns int', 'Returns object (e.g., {\"key\": \"value\"})'"
@@ -88,9 +88,14 @@ $defs:
         $ref: "#/$defs/StateDataFilter"
       transition:
         type: string
+        description: "Next state to transition to"
       end:
         type: [boolean, object]
+        description: "End workflow execution"
     required: [name, type, actions]
+    oneOf:
+      - required: [transition]
+      - required: [end]
   ForEachState:
     type: object
     properties:
@@ -114,9 +119,14 @@ $defs:
         $ref: "#/$defs/StateDataFilter"
       transition:
         type: string
+        description: "Next state to transition to"
       end:
         type: [boolean, object]
+        description: "End workflow execution"
     required: [name, type, inputCollection]
+    oneOf:
+      - required: [transition]
+      - required: [end]
   SwitchState:
     type: object
     properties:
@@ -148,9 +158,14 @@ $defs:
         $ref: "#/$defs/StateDataFilter"
       transition:
         type: string
+        description: "Next state to transition to"
       end:
         type: [boolean, object]
+        description: "End workflow execution"
     required: [name, type]
+    oneOf:
+      - required: [transition]
+      - required: [end]
   SubflowState:
     type: object
     properties:
@@ -166,9 +181,14 @@ $defs:
         $ref: "#/$defs/StateDataFilter"
       transition:
         type: string
+        description: "Next state to transition to"
       end:
         type: [boolean, object]
+        description: "End workflow execution"
     required: [name, type, workflowId]
+    oneOf:
+      - required: [transition]
+      - required: [end]
   ParallelState:
     type: object
     properties:
@@ -199,9 +219,14 @@ $defs:
         $ref: "#/$defs/StateDataFilter"
       transition:
         type: string
+        description: "Next state to transition to"
       end:
         type: [boolean, object]
+        description: "End workflow execution"
     required: [name, type, branches]
+    oneOf:
+      - required: [transition]
+      - required: [end]
   EndState:
     type: object
     properties:
