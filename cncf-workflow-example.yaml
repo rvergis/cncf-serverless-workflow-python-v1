@@ -50,6 +50,7 @@ states:
   # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   - name: ParallelStart
     type: parallel
+    transition: ForEachState
     branches:
       
       # Branch: Branch1
@@ -105,13 +106,13 @@ states:
     stateDataFilter:
       input: "{}"
       output: ".context"
-    transition: ForEachState
   
   # State: ForEachState
   # Input: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {\"results\": [{\"method2\": \"Processed: 10\"}, {\"method3\": [31, 32]}, {\"method3\": [46, 47]}]}}}"
   - name: ForEachState
     type: foreach
+    transition: SwitchState
     inputCollection: ".context.ParallelStartOutput.items // []"
     iterationParam: "item"
     iterator:
@@ -178,7 +179,6 @@ states:
     stateDataFilter:
       input: ".context.ParallelStartOutput // {}"
       output: ".context"
-    transition: SwitchState
   
   # State: SwitchState
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}}}"
@@ -209,6 +209,7 @@ states:
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {\"initOperation\": {\"value\": 70}, \"method1\": 72, \"method2\": \"Processed: Seq2: 72\", \"method3\": [\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"], \"method4\": {\"key\": \"Processed: Seq2: 72\"}}}}"
   - name: OperationState
     type: operation
+    transition: End
     actionMode: sequential
     stateDataFilter:
       output: ".context"
@@ -263,7 +264,6 @@ states:
           arguments:
             input: "{input: {default: (.context.OperationStateOutput.method3[0] // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method4"
-    transition: End
   
   # State: End
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {...}}}"
