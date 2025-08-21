@@ -4,6 +4,7 @@ version: "1.0.0"
 name: Simplified Agentic AI Workflow
 description: "Simplified workflow with state-based naming, no dataInput, null checks, quoted structured comments"
 start: ParallelStart
+
 functions:
   - name: initParallel
     type: expression
@@ -41,13 +42,17 @@ functions:
     type: custom
     operation: sub_agent_operation
     comment: "Returns object (e.g., {\"subResult\": processed})"
+
 states:
+  
   # State: ParallelStart
   # Input: "{}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   - name: ParallelStart
     type: parallel
+    transition: ForEachState
     branches:
+
       # Branch: Branch1
       # Input: "{}"
       # Output: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62}}}"
@@ -75,6 +80,7 @@ states:
                     input: "{input: (.context.ParallelStartOutput.value // 0) + 1}"
                   dataOutput: ".context.ParallelStartOutput.Branch1Output"
             end: true
+      
       # Branch: Branch2
       # Input: "{}"
       # Output: "{\"context\": {\"ParallelStartOutput\": {\"Branch2Output\": \"Processed: 2\"}}}"
@@ -97,15 +103,17 @@ states:
     stateDataFilter:
       input: "{}"
       output: ".context"
-    transition: ForEachState
+  
   # State: ForEachState
   # Input: "{\"context\": {\"ParallelStartOutput\": {\"items\": [{\"value\": 60}, {\"value\": 30}, {\"value\": 45}], \"value\": 60, \"Branch1Output\": 62, \"Branch2Output\": \"Processed: 2\"}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {\"results\": [{\"method2\": \"Processed: 10\"}, {\"method3\": [31, 32]}, {\"method3\": [46, 47]}]}}}"
   - name: ForEachState
     type: foreach
+    transition: SwitchState
     inputCollection: ".context.ParallelStartOutput.items // []"
     iterationParam: "item"
     iterator:
+      
       # Iterator State: ForEachSwitch
       # Input: "{\"item\": {\"value\": <number>}, \"context\": {...}}"
       # Output: "\"Routes to HighAction, LowAction, or SubflowAction\""
@@ -118,6 +126,7 @@ states:
             transition: LowAction
         defaultCondition:
           transition: SubflowAction
+      
       # Iterator State: HighAction
       # Input: "{\"item\": {\"value\": 60}, \"context\": {...}}"
       # Output: "{\"context\": {\"ForEachStateOutput\": {\"method2\": \"Processed: 10\"}}}"
@@ -134,6 +143,7 @@ states:
                 input: "{input: (.item.value // 0) - 50}"
               dataOutput: ".context.ForEachStateOutput.method2"
         end: true
+      
       # Iterator State: LowAction
       # Input: "{\"item\": {\"value\": 30 | 45}, \"context\": {...}}"
       # Output: "{\"context\": {\"ForEachStateOutput\": {\"method3\": [31, 32] | [46, 47]}}}"
@@ -150,6 +160,7 @@ states:
                 input: "{input: {value: (.item.value // 0) + 1}}"
               dataOutput: ".context.ForEachStateOutput.method3"
         end: true
+      
       # Iterator State: SubflowAction
       # Input: "{\"item\": {\"value\": null}, \"context\": {...}} (hypothetical, not triggered)"
       # Output: "{\"context\": {\"ForEachStateOutput\": {\"SubWorkflowOutput\": {\"subResult\": 0}}}}"
@@ -163,7 +174,7 @@ states:
     stateDataFilter:
       input: ".context.ParallelStartOutput // {}"
       output: ".context"
-    transition: SwitchState
+
   # State: SwitchState
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {\"value\": 60}}}"
@@ -179,15 +190,18 @@ states:
     stateDataFilter:
       input: ".context.ForEachStateOutput // {}"
       output: ".context"
+  
   # State: OperationState
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}}}"
   # Output: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {\"initOperation\": {\"value\": 70}, \"method1\": 72, \"method2\": \"Processed: Seq2: 72\", \"method3\": [\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"], \"method4\": {\"key\": \"Processed: Seq2: 72\"}}}}"
   - name: OperationState
     type: operation
+    transition: End
     actionMode: sequential
     stateDataFilter:
       output: ".context"
     actions:
+      
       # Action: initOperation
       # Input: "{}"
       # Output: "{\"value\": 70}"
@@ -197,6 +211,7 @@ states:
           arguments:
             input: "{}"
           dataOutput: ".context.OperationStateOutput.initOperation"
+      
       # Action: method1
       # Input: "{\"input\": 71}"
       # Output: "72"
@@ -206,6 +221,7 @@ states:
           arguments:
             input: "{input: (.context.OperationStateOutput.initOperation.value // 0) + 1}"
           dataOutput: ".context.OperationStateOutput.method1"
+      
       # Action: method2
       # Input: "{\"input\": \"Seq2: 72\"}"
       # Output: "\"Processed: Seq2: 72\""
@@ -215,6 +231,7 @@ states:
           arguments:
             input: "{input: \"Seq2: \" + ((.context.OperationStateOutput.method1 // 0) | tostring)}"
           dataOutput: ".context.OperationStateOutput.method2"
+      
       # Action: method3
       # Input: "{\"input\": {\"value\": \"Processed: Seq2: 72\"}}"
       # Output: "[\"Processed: Seq2: 72\", \"Processed: Seq2: 73\"]"
@@ -224,6 +241,7 @@ states:
           arguments:
             input: "{input: {value: (.context.OperationStateOutput.method2 // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method3"
+      
       # Action: method4
       # Input: "{\"input\": {\"default\": \"Processed: Seq2: 72\"}}"
       # Output: "{\"key\": \"Processed: Seq2: 72\"}"
@@ -233,12 +251,14 @@ states:
           arguments:
             input: "{input: {default: (.context.OperationStateOutput.method3[0] // \"\")}}"
           dataOutput: ".context.OperationStateOutput.method4"
-    transition: End
+  
   # State: End
   # Input: "{\"context\": {\"ParallelStartOutput\": {...}, \"ForEachStateOutput\": {...}, \"SwitchStateOutput\": {...}, \"OperationStateOutput\": {...}}}"
   # Output: "\"Same as input (terminates workflow)\""
   - name: End
     type: end
+
+
 subWorkflows:
   # SubWorkflow: SubWorkflow
   # Input: "{\"context\": {\"SubWorkflowOutput\": {\"value\": <number>}}}"
