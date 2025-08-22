@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="cncf-serverless-workflow",
-    version="0.1.1",
+    version="0.1.2",
     packages=["cncf_serverless_workflow"],
     install_requires=["pyyaml", "jq", "jsonschema", "pytest"],
     include_package_data=True,
