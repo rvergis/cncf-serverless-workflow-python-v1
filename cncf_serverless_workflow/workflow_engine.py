@@ -149,21 +149,47 @@ def execute_switch_state(state: Dict, input_state: Dict, workflow: Dict) -> Dict
     
     for condition in conditions:
         if apply_jq(condition["condition"], current_state):
-            next_state_name = condition["transition"]
-            next_state = next((s for s in workflow["states"] if s["name"] == next_state_name), None)
-            if next_state:
-                return execute_state(next_state, current_state, workflow)
+            next_state_name = condition.get("transition")
+            if next_state_name:
+                next_state = next((s for s in workflow["states"] if s["name"] == next_state_name), None)
+                if next_state:
+                    return execute_state(next_state, current_state, workflow)
+            if condition.get("end"):
+                return current_state
     
     next_state_name = default_condition.get("transition")
     if next_state_name:
         next_state = next((s for s in workflow["states"] if s["name"] == next_state_name), None)
         if next_state:
             return execute_state(next_state, current_state, workflow)
+    if default_condition.get("end"):
+        return current_state
     
     output_path = state.get("stateDataFilter", {}).get("output", ".context")
     if output_path == ".context":
         return merge_dicts(current_state, {"context": {"SwitchStateOutput": {"value": 60}}})
     return set_path(current_state, output_path, {"value": 60})
+
+def execute_parallel_state(state: Dict, input_state: Dict) -> Dict:
+    """Execute a ParallelState."""
+    current_state = deepcopy(input_state)
+    branches = state.get("branches", [])
+    
+    branch_outputs = []
+    for branch in branches:
+        branch_state = deepcopy(current_state)
+        for branch_state_def in branch.get("states", []):
+            branch_state = execute_state(branch_state_def, branch_state, {})
+        branch_outputs.append(branch_state)
+    
+    merged_output = current_state
+    for output in branch_outputs:
+        merged_output = merge_dicts(merged_output, output)
+    
+    output_path = state.get("stateDataFilter", {}).get("output", ".context")
+    if output_path == ".context":
+        return {"context": merged_output.get("context", {})}
+    return set_path(current_state, output_path, merged_output.get("context", {}))
 
 def execute_subflow_state(state: Dict, input_state: Dict, workflow: Dict) -> Dict:
     """Execute a SubflowState."""
@@ -200,3 +226,23 @@ def execute_state(state: Dict, input_state: Dict, workflow: Dict) -> Dict:
         return execute_operation_state(state, current_state)
     elif state_type == "foreach":
         return execute_foreach_state(state, current_state, workflow)
+    elif state_type == "switch":
+        return execute_switch_state(state, current_state, workflow)
+    elif state_type == "subflow":
+        return execute_subflow_state(state, current_state, workflow)
+    elif state_type == "end":
+        return execute_end_state(state, current_state)
+    else:
+        raise ValueError(f"Unsupported state type: {state_type}")
+
+def execute_workflow(workflow: Dict) -> Dict:
+    """Execute the entire workflow and return the final state."""
+    current_state = {}
+    start_state_name = workflow.get("start")
+    states = workflow.get("states", [])
+    
+    start_state = next((s for s in states if s["name"] == start_state_name), None) if isinstance(start_state_name, str) else start_state_name
+    if not start_state:
+        raise ValueError("No valid start state found")
+    
+    return execute_state(start_state, current_state, workflow)

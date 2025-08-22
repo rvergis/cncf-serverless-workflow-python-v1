@@ -73,7 +73,7 @@ $defs:
       comment:
         type: string
         description: "Quoted string explaining the shape of the returned data, e.g., 'Returns int', 'Returns object (e.g., {\"key\": \"value\"})'"
-    required: [name, type, operation, comment]
+    required: [name, type, operation]
   Event:
     type: object
     properties:
@@ -170,7 +170,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, actions]
     oneOf:
@@ -201,7 +201,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, inputCollection]
     oneOf:
@@ -227,7 +227,7 @@ $defs:
               type: string
               description: "Next state to transition to if condition is true"
             end:
-              type: [boolean, object]
+              type: boolean
               description: "End workflow execution if condition is true"
           required: [condition]
           oneOf:
@@ -241,7 +241,7 @@ $defs:
             type: string
             description: "Default state to transition to"
           end:
-            type: [boolean, object]
+            type: boolean
             description: "End workflow execution"
         oneOf:
           - required: [transition]
@@ -252,12 +252,10 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
-    required: [name, type]
-    oneOf:
-      - required: [transition]
-      - required: [end]
+    required: [name, type]  # Removed oneOf from top level
+    # Removed oneOf constraint, relying on dataConditions/defaultCondition for flow control
   SubflowState:
     type: object
     properties:
@@ -275,7 +273,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, workflowId]
     oneOf:
@@ -313,7 +311,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, branches]
     oneOf:
@@ -363,7 +361,7 @@ $defs:
               type: string
               description: "Next state to transition to"
             end:
-              type: [boolean, object]
+              type: boolean
               description: "End workflow execution"
           required: [eventRefs]
           oneOf:
@@ -376,7 +374,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, onEvents]
     oneOf:
@@ -399,7 +397,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, timeDelay]
     oneOf:
@@ -422,7 +420,7 @@ $defs:
         type: string
         description: "Next state to transition to"
       end:
-        type: [boolean, object]
+        type: boolean
         description: "End workflow execution"
     required: [name, type, data]
     oneOf:
@@ -455,6 +453,7 @@ $defs:
       dataOutput:
         type: string
         description: "JSONPath to merge action output, e.g., '.context.<StateName>Output.<functionName>' or '.context.<StateName>Output.<BranchName>Output' for branches"
+    required: [functionRef]
   StateDataFilter:
     type: object
     properties:
@@ -464,3 +463,4 @@ $defs:
       output:
         type: string
         description: "JSONPath to merge state output, e.g., '.context'"
+    required: []

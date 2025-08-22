@@ -13,29 +13,23 @@ def validate_workflow(workflow: Dict, schema: Dict) -> Dict:
     """Validate workflow against schema, collecting all errors."""
     errors: List[str] = []
 
-    # Collect JSON schema validation errors
+    # Collect JSON schema validation errors with detailed parsing
     validator = Draft7Validator(schema)
     for error in validator.iter_errors(workflow):
-        errors.append(f"Schema validation failed: {error.message} at {'.'.join(str(p) for p in error.path)}")
+        path = ".".join(str(p) for p in error.path)
+        if error.validator == "oneOf" and "states" in path:
+            state_idx = int(path.split(".")[1]) if path.split(".")[1].isdigit() else 0
+            state = workflow.get("states", [])[state_idx]
+            state_type = state.get("type")
+            if state_type and state_type != "end" and not (state.get("transition") or state.get("end")):
+                errors.append(f"State '{state.get('name', f'state at {path}')} missing mandatory transition or end: true")
+        else:
+            errors.append(f"Schema validation failed: {error.message} at {path} - Check required fields or structure")
 
-    # Custom checks for mandatory fields
+    # Custom checks for spec-specific rules (iterator constraints and dataOutput enforcement)
     for state in workflow.get("states", []):
         state_name = state["name"]
         state_type = state["type"]
-
-        # Check transition or end (except EndState and SwitchState)
-        if state_type != "end" and not (state.get("transition") or state.get("end")):
-            if state_type != "switch" or not (state.get("dataConditions") or state.get("defaultCondition")):
-                errors.append(f"State '{state_name}' missing mandatory transition or end: true")
-
-        # Check stateDataFilter (except EndState)
-        if state_type != "end" and not state.get("stateDataFilter"):
-            errors.append(f"State '{state_name}' missing mandatory stateDataFilter with input and output")
-
-        # Check dataOutput in actions
-        for action in state.get("actions", []):
-            if not action.get("dataOutput"):
-                errors.append(f"Action in state '{state_name}' missing mandatory dataOutput")
 
         # Check iterator states in ForEachState
         if state_type == "foreach":
@@ -45,21 +39,28 @@ def validate_workflow(workflow: Dict, schema: Dict) -> Dict:
                     errors.append(f"Iterator state '{iter_name}' cannot be type: end; use end: true")
                 if not (iterator_state.get("transition") or iterator_state.get("end") or iterator_state.get("dataConditions")):
                     errors.append(f"Iterator state '{iter_name}' missing mandatory transition or end: true")
-                if not iterator_state.get("stateDataFilter"):
-                    errors.append(f"Iterator state '{iter_name}' missing mandatory stateDataFilter")
 
-    # Validate sub-workflows
+        # Enforce dataOutput for actions to ensure result storage
+        if state_type in ["operation", "foreach", "subflow"]:
+            for action in state.get("actions", []):
+                if "functionRef" in action and not action.get("dataOutput"):
+                    errors.append(f"Action in state '{state_name}' missing dataOutput - Result of '{action['functionRef'].get('refName', 'unknown function')}' will be discarded unless stored. Consider adding dataOutput (e.g., '.context.{state_name}Output')")
+
+    # Validate sub-workflows, avoiding prefix for valid cases
     for sub_workflow in workflow.get("subWorkflows", []):
         sub_errors = validate_workflow(sub_workflow, schema).get("message", [])
-        errors.extend([f"Sub-workflow '{sub_workflow['id']}': {msg}" for msg in sub_errors if msg])
+        if sub_errors and sub_errors != ["Workflow is valid"]:
+            errors.extend([f"Sub-workflow '{sub_workflow['id']}': {msg}" for msg in sub_errors if msg])
+        elif sub_errors:
+            errors.extend(sub_errors)  # Use unprefixed message for valid sub-workflows
 
-    if errors:
+    if errors and errors != ["Workflow is valid"]:
         return {"status": "invalid", "message": errors}
     return {"status": "valid", "message": ["Workflow is valid"]}
 
 def main():
-    schema = load_yaml("workflow-schema.yaml")
-    workflow = load_yaml("simplified-agentic-workflow.yaml")
+    schema = load_yaml("workflow_schema.yaml")
+    workflow = load_yaml("workflow_example.yaml")
     result = validate_workflow(workflow, schema)
     print(json.dumps(result, indent=2))
 
