@@ -10,7 +10,7 @@ def schema():
 @pytest.fixture
 def valid_workflow():
     """Load the valid workflow."""
-    return load_yaml("cncf-workflow-example.yaml")
+    return load_yaml("workflow_example.yaml")
 
 def test_valid_workflow(schema, valid_workflow):
     """Test valid workflow passes validation."""

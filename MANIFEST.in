@@ -1,5 +1,10 @@
-include test_workflow_validator.py
-include workflow_schema.yaml
-include workflow_example.yaml
-include README.md
+# Include essential files for PyPI distribution
 include LICENSE
+include README.md
+
+# Include workflow schema and example from the package directory
+include cncf_serverless_workflow/workflow_schema.yaml
+include cncf_serverless_workflow/workflow_example.yaml
+
+# Exclude test file from the package directory
+exclude cncf_serverless_workflow/test_workflow_validator.py

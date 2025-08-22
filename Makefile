@@ -5,7 +5,7 @@ install:
 	pip install setuptools wheel twine pytest
 
 test:
-	pytest test-workflow-validator.py
+	pytest cncf_serverless_workflow/test_workflow_validator.py
 
 build:
 	python setup.py sdist bdist_wheel
