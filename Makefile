@@ -41,12 +41,17 @@ publish:
 	@git push origin v$(VERSION) || echo "Error: Failed to push tag v$(VERSION), ensure remote is configured"
 	@echo "Triggered GitHub Actions workflow for publishing v$(VERSION)"
 
+# Force-publish the package by overwriting the tag and pushing to GitHub
 force-publish:
-	@echo "Force-publishing version..."
-	$(eval VERSION := $(shell grep "__version__" __init__.py | cut -d'"' -f2))
+	@echo "Reading version from cncf_serverless_workflow/__init__.py..."
+	@if [ ! -f cncf_serverless_workflow/__init__.py ]; then echo "Error: cncf_serverless_workflow/__init__.py not found"; exit 1; fi
+	$(eval VERSION := $(shell grep "__version__" cncf_serverless_workflow/__init__.py | cut -d'"' -f2))
+	@if [ -z "$(VERSION)" ]; then echo "Error: Could not extract version from cncf_serverless_workflow/__init__.py"; exit 1; fi
+	@echo "Force-creating tag v$(VERSION)"
 	@git tag -f v$(VERSION)
-	@git push origin v$(VERSION) --force
-	@echo "Triggered GitHub Actions workflow for publishing $(VERSION)"
+	@echo "Force-pushing tag v$(VERSION) to origin"
+	@git push origin v$(VERSION) --force || echo "Error: Failed to push tag v$(VERSION), ensure remote is configured"
+	@echo "Triggered GitHub Actions workflow for publishing v$(VERSION)"
 
 clean:
 	rm -rf dist build *.egg-info
