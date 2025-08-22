@@ -5,7 +5,7 @@ install:
 	pip install setuptools wheel twine pytest
 
 test:
-	pytest cncf_serverless_workflow/test_workflow_validator.py
+	pytest cncf_serverless_workflow/test_workflow_validator.py cncf_serverless_workflow/test_workflow_engine.py
 
 build:
 	python setup.py sdist bdist_wheel
@@ -33,8 +33,8 @@ publish:
 force-publish:
 	@echo "Force-publishing version..."
 	$(eval VERSION := $(shell grep "__version__" __init__.py | cut -d'"' -f2))
-	@git tag -f v$(VERSION)  # Force overwrite existing tag
-	@git push origin v$(VERSION) --force  # Force push tag
+	@git tag -f v$(VERSION)
+	@git push origin v$(VERSION) --force
 	@echo "Triggered GitHub Actions workflow for publishing $(VERSION)"
 
 clean:

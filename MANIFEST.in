@@ -8,3 +8,4 @@ include cncf_serverless_workflow/workflow_example.yaml
 
 # Exclude test file from the package directory
 exclude cncf_serverless_workflow/test_workflow_validator.py
+exclude cncf_serverless_workflow/test_workflow_engine.py
