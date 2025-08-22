@@ -27,19 +27,17 @@ def merge_dicts(dict1: Dict, dict2: Dict) -> Dict:
 
 def apply_jq(expression: Any, data: Dict) -> Any:
     """Apply JQ expression to data, handling non-string values and literal strings."""
-    # If expression is not a string, return it directly (e.g., int, float)
     if not isinstance(expression, str):
         return expression
-    # If expression is an empty string or "{}", return an empty dict
     if expression == "{}" or expression == "":
         return {}
-    # Try to compile as a JQ expression; if it fails, treat as literal string
     try:
-        jq.compile(expression)  # Test compilation without executing
-        return jq.compile(expression).input(data).first()
+        jq.compile(expression)
+        result = jq.compile(expression).input(data).first()
+        print(f"JQ success: expression={expression}, data={data}, result={result}")
+        return result
     except Exception as e:
-        # If JQ compilation fails, treat the expression as a literal string
-        print(f"JQ error: {e}, expression: {expression}, treating as literal value")
+        print(f"JQ error: {e}, expression={expression}, data={data}, treating as literal value")
         return expression
 
 def set_path(data: Dict, path: str, value: Any) -> Dict:
@@ -59,16 +57,13 @@ def execute_action(action: Dict, state: Dict, functions: Dict[str, Callable] = {
     ref_name = function_ref["refName"]
     arguments = function_ref.get("arguments", {})
     
-    # Evaluate arguments
     arg_input = apply_jq(arguments.get("input", "{}"), state)
     
-    # Execute function via delegate
     func = functions.get(ref_name)
     if not func:
         raise ValueError(f"Function {ref_name} not found")
     output = func(arg_input)
     
-    # Merge output to dataOutput path
     output_path = action.get("dataOutput", "")
     if output_path:
         return set_path({}, output_path, output)
@@ -84,7 +79,7 @@ def execute_operation_state(state: Dict, input_state: Dict, functions: Dict[str,
         for action in actions:
             action_output = execute_action(action, current_state, functions)
             current_state = merge_dicts(current_state, action_output)
-    else:  # parallel
+    else:
         outputs = [execute_action(action, current_state, functions) for action in actions]
         for output in outputs:
             current_state = merge_dicts(current_state, output)
@@ -223,6 +218,7 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
     state_map = {state["name"]: state for state in workflow.get("states", [])}
     start_state = workflow.get("start")
     visited_states = set()
+    intermediate_results = []
 
     if isinstance(start_state, str):
         current_state = state_map.get(start_state)
@@ -236,12 +232,16 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
             break
         visited_states.add(state_name)
 
+        # Capture input state for states with actions
+        state_input = deepcopy(context) if current_state.get("actions") else None
+
         # Simulate action execution and update context
         for action in current_state.get("actions", []):
             if "functionRef" in action and "dataOutput" in action:
                 ref_name = action["functionRef"]["refName"]
-                args = action.get("arguments", {})
+                args = action["functionRef"].get("arguments", {})
                 arg_input = apply_jq(args.get("input", "{}"), context)
+                print(f"Action in state '{state_name}': ref_name={ref_name}, args={args}, arg_input={arg_input}")
                 func = functions.get(ref_name)
                 if not func:
                     errors.append(f"State '{state_name}' action references undefined function '{ref_name}'")
@@ -252,6 +252,7 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
         # Handle foreach state specifically
         if current_state["type"] == "foreach":
             input_collection = apply_jq(current_state.get("inputCollection", "[]"), context)
+            print(f"ForEach state '{state_name}': input_collection={input_collection}")
             if input_collection is None or (isinstance(input_collection, (list, dict)) and not input_collection):
                 errors.append(f"State '{state_name}' inputCollection '{current_state['inputCollection']}' references undefined or empty data")
             else:
@@ -260,18 +261,37 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
                 for item in input_collection or []:
                     item_context = deepcopy(context)
                     item_context[iteration_param] = item
+                    print(f"ForEach iteration: item={item}, item_context={item_context}")
                     for iterator_state in iterator_states:
+                        # Capture iterator state input
+                        iterator_input = deepcopy(item_context) if iterator_state.get("actions") else None
                         for action in iterator_state.get("actions", []):
                             if "functionRef" in action and "dataOutput" in action:
                                 ref_name = action["functionRef"]["refName"]
-                                args = action.get("arguments", {})
+                                args = action["functionRef"].get("arguments", {})
                                 arg_input = apply_jq(args.get("input", "{}"), item_context)
+                                print(f"Action in iterator state '{iterator_state['name']}': ref_name={ref_name}, args={args}, arg_input={arg_input}")
                                 func = functions.get(ref_name)
                                 if not func:
                                     errors.append(f"Iterator state '{iterator_state['name']}' action references undefined function '{ref_name}'")
                                     continue
                                 output = func(arg_input)
                                 item_context = merge_dicts(item_context, set_path({}, action["dataOutput"], output))
+                        # Capture iterator state output
+                        if iterator_input is not None:
+                            intermediate_results.append({
+                                "state": iterator_state["name"],
+                                "input": iterator_input,
+                                "output": deepcopy(item_context)
+                            })
+
+        # Capture state output for states with actions
+        if state_input is not None:
+            intermediate_results.append({
+                "state": state_name,
+                "input": state_input,
+                "output": deepcopy(context)
+            })
 
         # Validate next state inputs
         next_state_name = current_state.get("transition")
@@ -281,13 +301,15 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
                 if "inputCollection" in next_state:
                     input_path = next_state["inputCollection"].split("//")[0].strip()
                     input_value = apply_jq(next_state["inputCollection"], context)
+                    print(f"Next state '{next_state['name']}': input_path={input_path}, input_value={input_value}")
                     if input_value is None or (isinstance(input_value, (list, dict)) and not input_value):
                         errors.append(f"State '{next_state['name']}' inputCollection '{next_state['inputCollection']}' references undefined or empty data")
                 for action in next_state.get("actions", []):
-                    if "arguments" in action:
-                        for arg_name, arg_value in action["arguments"].items():
+                    if "arguments" in action["functionRef"]:
+                        for arg_name, arg_value in action["functionRef"]["arguments"].items():
                             arg_path = str(arg_value).split("//")[0].strip()
                             arg_result = apply_jq(arg_value, context)
+                            print(f"Action in next state '{next_state['name']}': arg_name={arg_name}, arg_value={arg_value}, arg_result={arg_result}")
                             if arg_result is None or (isinstance(arg_result, (list, dict)) and not arg_result):
                                 errors.append(f"Action in state '{next_state['name']}' argument '{arg_name}: {arg_value}' references undefined or empty data")
 
@@ -295,7 +317,6 @@ def validate_state_flow(workflow: Dict, functions: Dict[str, Callable] = {}) -> 
         if not current_state or current_state.get("end"):
             break
 
-    if errors:
-        return {"status": "invalid", "message": errors}
-    return {"status": "valid", "message": ["Data flow is consistent"]}
-
+    result = {"status": "invalid", "message": errors} if errors else {"status": "valid", "message": ["Data flow is consistent"]}
+    result["intermediate_results"] = intermediate_results
+    return result

@@ -106,7 +106,7 @@ def test_execute_missing_dataOutput(init_parallel):
     functions = {"initParallel": init_parallel}
     result = execute_workflow(workflow, functions=functions)
     assert "context" in result
-    assert "startOutput" not in result["context"]  # Data not stored without dataOutput
+    assert "startOutput" not in result["context"]
 
 def test_validate_state_flow_valid(produce_data, process_item):
     """Test validate_state_flow with a valid data flow."""
@@ -267,3 +267,77 @@ def test_execute_parallel_state(method1, method2):
     assert "branch2" in result["context"]
     assert result["context"]["branch2"] == "Processed: test"
 
+def test_validate_state_flow_intermediate_results(produce_data, process_item):
+    """Test validate_state_flow captures correct intermediate state inputs and outputs."""
+    workflow = {
+        "id": "test-flow",
+        "specVersion": "1.0",
+        "start": "ProduceData",
+        "states": [
+            {
+                "name": "ProduceData",
+                "type": "operation",
+                "transition": "ConsumeData",
+                "actions": [
+                    {
+                        "functionRef": {"refName": "produceData", "arguments": {"input": "{}"}},
+                        "dataOutput": ".context.producedData"
+                    }
+                ]
+            },
+            {
+                "name": "ConsumeData",
+                "type": "foreach",
+                "transition": "End",
+                "inputCollection": ".context.producedData",
+                "iterationParam": "item",
+                "iterator": [
+                    {
+                        "name": "ProcessItem",
+                        "type": "operation",
+                        "actions": [
+                            {
+                                "functionRef": {"refName": "processItem", "arguments": {"input": ".item"}},
+                                "dataOutput": ".context.processedItem"
+                            }
+                        ],
+                        "end": True
+                    }
+                ]
+            },
+            {
+                "name": "End",
+                "type": "end"
+            }
+        ]
+    }
+    functions = {"produceData": produce_data, "processItem": process_item}
+    result = validate_state_flow(workflow, functions=functions)
+    assert result["status"] == "valid"
+    assert result["message"] == ["Data flow is consistent"], result["message"]
+    
+    # Verify intermediate results
+    intermediate_results = result["intermediate_results"]
+    assert len(intermediate_results) == 4  # ProduceData + 3 iterations of ProcessItem
+    
+    # Check ProduceData state
+    produce_data_result = next(r for r in intermediate_results if r["state"] == "ProduceData")
+    assert produce_data_result["input"] == {"context": {}}
+    assert produce_data_result["output"] == {
+        "context": {
+            "producedData": [{"value": 1}, {"value": 2}, {"value": 3}]
+        }
+    }
+    
+    # Check ProcessItem state (3 iterations)
+    process_item_results = [r for r in intermediate_results if r["state"] == "ProcessItem"]
+    assert len(process_item_results) == 3
+    expected_values = [1, 2, 3]
+    for i, res in enumerate(process_item_results):
+        assert res["input"]["item"] == {"value": expected_values[i]}
+        assert res["input"]["context"] == {"producedData": [{"value": 1}, {"value": 2}, {"value": 3}]}
+        assert res["output"]["item"] == {"value": expected_values[i]}
+        assert res["output"]["context"] == {
+            "producedData": [{"value": 1}, {"value": 2}, {"value": 3}],
+            "processedItem": {"result": expected_values[i]}
+        }
