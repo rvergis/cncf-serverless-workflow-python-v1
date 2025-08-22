@@ -46,14 +46,12 @@ def test_missing_transition_and_stateDataFilter(schema):
         ]
     }
     result = validate_workflow(invalid_workflow, schema)
-    print("message", result["message"])
-    assert result["status"] == "invalid"  # Reverted to expect invalid
+    assert result["status"] == "invalid"
     assert len(result["message"]) >= 1
     assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
 
-
 def test_missing_dataOutput(schema):
-    """Test workflow with missing dataOutput does not fail (optional per schema)."""
+    """Test workflow with missing dataOutput fails with actionable error."""
     invalid_workflow = {
         "id": "test-workflow",
         "specVersion": "1.0",
@@ -74,6 +72,8 @@ def test_missing_dataOutput(schema):
     }
     result = validate_workflow(invalid_workflow, schema)
     assert result["status"] == "invalid"
+    assert len(result["message"]) >= 1
+    assert any("missing dataOutput" in msg for msg in result["message"])
 
 def test_iterator_type_end(schema):
     """Test workflow with type: end in iterator state returns error."""
@@ -106,82 +106,85 @@ def test_iterator_type_end(schema):
     assert result["status"] == "invalid"
     assert any("cannot be type: end; use end: true" in msg for msg in result["message"])
 
-# def test_subworkflow_validation(schema, valid_workflow):
-#     """Test sub-workflow validation returns all errors."""
-#     invalid_subworkflow = {
-#         "id": "InvalidSubWorkflow",
-#         "specVersion": "1.0",
-#         "version": "1.0.0",
-#         "name": "Invalid Sub Workflow",
-#         "subWorkflows": [  # Added subWorkflows structure
-#             {
-#                 "id": "NestedSubWorkflow",
-#                 "specVersion": "1.0",
-#                 "version": "1.0.0",
-#                 "states": [
-#                     {
-#                         "name": "NestedInvalidOperation",
-#                         "type": "operation",
-#                         "actions": [
-#                             {
-#                                 "functionRef": {"refName": "subAgent", "arguments": {"input": "{}"}}
-#                             }
-#                         ]
-#                     }
-#                 ]
-#             }
-#         ],
-#         "states": [
-#             {
-#                 "name": "InvalidOperation",
-#                 "type": "operation",
-#                 "actions": [
-#                     {
-#                         "functionRef": {"refName": "subAgent", "arguments": {"input": "{}"}}
-#                     }
-#                 ]
-#             }
-#         ]
-#     }
-#     result = validate_workflow(invalid_subworkflow, schema)
-#     assert result["status"] == "invalid"
-#     assert len(result["message"]) >= 2  # Expect errors from both main workflow and sub-workflow
-#     assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
-#     assert any("Sub-workflow 'NestedSubWorkflow': missing mandatory transition or end: true" in msg for msg in result["message"])
+def test_subworkflow_validation(schema, valid_workflow):
+    """Test sub-workflow validation returns all errors."""
+    invalid_subworkflow = {
+        "id": "InvalidSubWorkflow",
+        "specVersion": "1.0",
+        "version": "1.0.0",
+        "name": "Invalid Sub Workflow",
+        "subWorkflows": [
+            {
+                "id": "NestedSubWorkflow",
+                "specVersion": "1.0",
+                "version": "1.0.0",
+                "states": [
+                    {
+                        "name": "NestedInvalidOperation",
+                        "type": "operation",
+                        "actions": [
+                            {
+                                "functionRef": {"refName": "subAgent", "arguments": {"input": "{}"}}
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "states": [
+            {
+                "name": "InvalidOperation",
+                "type": "operation",
+                "actions": [
+                    {
+                        "functionRef": {"refName": "subAgent", "arguments": {"input": "{}"}}
+                    }
+                ]
+            }
+        ]
+    }
+    result = validate_workflow(invalid_subworkflow, schema)
+    print("message", result["message"])
+    assert result["status"] == "invalid"
+    assert len(result["message"]) >= 2  # Allow for multiple errors
+    assert any("missing mandatory transition or end: true" in msg for msg in result["message"])  # Main workflow error
+    assert any("Sub-workflow 'NestedSubWorkflow': State 'NestedInvalidOperation missing mandatory transition or end: true" in msg for msg in result["message"])  # Sub-workflow error
+    assert any("missing dataOutput" in msg for msg in result["message"])  # Main workflow dataOutput error
+    assert any("Sub-workflow 'NestedSubWorkflow': Action in state 'NestedInvalidOperation' missing dataOutput" in msg for msg in result["message"])  # Sub-workflow dataOutput error
 
-# def test_multiple_errors_combined(schema):
-#     """Test workflow with multiple errors returns all at once."""
-#     invalid_workflow = {
-#         "id": "test-workflow",
-#         "specVersion": "1.0",
-#         "version": "1.0.0",
-#         "name": "Test Workflow",
-#         "states": [
-#             {
-#                 "name": "GetAllObjectIds",
-#                 "type": "operation",
-#                 "actions": [
-#                     {
-#                         "functionRef": {"refName": "getObjectIds", "arguments": {"input": "{}"}}
-#                     }
-#                 ]
-#             },
-#             {
-#                 "name": "ForEachTest",
-#                 "type": "foreach",
-#                 "inputCollection": ".items",
-#                 "iterationParam": "item",
-#                 "iterator": [
-#                     {
-#                         "name": "InvalidEnd",
-#                         "type": "end"
-#                     }
-#                 ]
-#             }
-#         ]
-#     }
-#     result = validate_workflow(invalid_workflow, schema)
-#     assert result["status"] == "invalid"
-#     assert len(result["message"]) >= 2
-#     assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
-#     assert any("cannot be type: end; use end: true" in msg for msg in result["message"])
+def test_multiple_errors_combined(schema):
+    """Test workflow with multiple errors returns all at once."""
+    invalid_workflow = {
+        "id": "test-workflow",
+        "specVersion": "1.0",
+        "version": "1.0.0",
+        "name": "Test Workflow",
+        "states": [
+            {
+                "name": "GetAllObjectIds",
+                "type": "operation",
+                "actions": [
+                    {
+                        "functionRef": {"refName": "getObjectIds", "arguments": {"input": "{}"}}
+                    }
+                ]
+            },
+            {
+                "name": "ForEachTest",
+                "type": "foreach",
+                "inputCollection": ".items",
+                "iterationParam": "item",
+                "iterator": [
+                    {
+                        "name": "InvalidEnd",
+                        "type": "end"
+                    }
+                ]
+            }
+        ]
+    }
+    result = validate_workflow(invalid_workflow, schema)
+    assert result["status"] == "invalid"
+    assert len(result["message"]) >= 2
+    assert any("missing mandatory transition or end: true" in msg for msg in result["message"])
+    assert any("cannot be type: end; use end: true" in msg for msg in result["message"])

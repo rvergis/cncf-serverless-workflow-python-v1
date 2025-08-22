@@ -25,6 +25,7 @@ jobs:
       - name: Run tests
         run: |
           pytest tests/test_workflow_validator.py
+          pytest tests/test_workflow_engine.py
 
       - name: Build package
         run: |

@@ -1,1 +1,3 @@
 /.venv
+*.pyc
+/cncf_serverless_workflow/__pycache__
