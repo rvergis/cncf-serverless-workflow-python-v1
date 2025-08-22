@@ -2,12 +2,15 @@ import yaml
 import jsonschema
 from jsonschema import Draft7Validator
 import json
-from typing import Dict, List
+from typing import Dict, List, Union, TextIO
+from pathlib import Path
 
-def load_yaml(file_path: str) -> Dict:
-    """Load YAML file into a dictionary."""
-    with open(file_path, "r") as f:
-        return yaml.safe_load(f)
+def load_yaml(file: Union[str, bytes, Path, TextIO]) -> dict:
+    """Load YAML from a file path or file-like object."""
+    if isinstance(file, (str, bytes, Path)):
+        with open(file, 'r') as f:
+            return yaml.safe_load(f)
+    return yaml.safe_load(file)  # Handle file-like object (e.g., TextIOWrapper)
 
 def validate_workflow(workflow: Dict, schema: Dict) -> Dict:
     """Validate workflow against schema, collecting all errors."""
